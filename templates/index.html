@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VagaNorm2</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand-mark">VN</div>
+    <div>
+      <h1>VagaNorm2</h1>
+      <p>Padronização assistida de planilhas de vagas</p>
+    </div>
+    <span class="local-badge">Execução local</span>
+  </header>
+
+  <main class="shell">
+    <ol class="steps" aria-label="Etapas do processamento">
+      <li class="active" data-step="1"><span>1</span>Entrada</li>
+      <li data-step="2"><span>2</span>Processamento</li>
+      <li data-step="3"><span>3</span>Pendências</li>
+      <li data-step="4"><span>4</span>QTD_INDV</li>
+      <li data-step="5"><span>5</span>Exportação</li>
+    </ol>
+
+    <section id="upload-panel" class="panel">
+      <div class="panel-heading">
+        <div>
+          <span class="eyebrow">ETAPA 1</span>
+          <h2>Selecione a planilha</h2>
+          <p>A planilha deve ser `.xlsx`, ter até 25 MB e conter a aba <strong>Lista</strong>.</p>
+        </div>
+      </div>
+
+      <label id="drop-zone" class="drop-zone" for="file-input">
+        <input id="file-input" type="file" accept=".xlsx" hidden>
+        <span class="upload-icon">⇧</span>
+        <strong id="file-title">Arraste o arquivo ou clique para selecionar</strong>
+        <small id="file-detail">Nenhum arquivo selecionado</small>
+      </label>
+
+      <fieldset class="qtd-rule">
+        <legend>Cálculo de QTD_INDV no _querieData</legend>
+        <label class="rule-choice">
+          <input type="radio" name="qtd-indv-mode" value="standard" checked>
+          <span><strong>Regra padrão</strong><small>Maior valor entre vagas × 20 e 250</small></span>
+        </label>
+        <label class="rule-choice custom-rule">
+          <input type="radio" name="qtd-indv-mode" value="custom">
+          <span><strong>Multiplicador personalizado</strong><small>Quantidade de vagas × X, sem piso mínimo</small></span>
+          <input id="qtd-indv-multiplier" class="multiplier-input" type="number" min="1" step="1" value="20" disabled aria-label="Multiplicador de QTD_INDV">
+        </label>
+      </fieldset>
+
+      <div class="actions"><button id="start-button" class="primary" disabled>Validar e processar</button></div>
+    </section>
+
+    <section id="progress-panel" class="panel hidden" aria-live="polite">
+      <span class="eyebrow">ETAPA 2</span>
+      <h2>Processando a planilha</h2>
+      <p id="status-message">Preparando processamento…</p>
+      <div class="progress-track"><div id="progress-bar" class="progress-bar"></div></div>
+      <div class="progress-meta"><span id="progress-value">0%</span><span id="job-code"></span></div>
+      <div id="warning-list" class="notice-list"></div>
+    </section>
+
+    <section id="review-panel" class="panel hidden">
+      <div class="panel-heading">
+        <div>
+          <span class="eyebrow">ETAPA 3</span>
+          <h2>Revisão em lote</h2>
+          <p>Uma decisão será aplicada a todas as linhas indicadas em cada pendência.</p>
+        </div>
+        <span id="issue-count" class="count-badge"></span>
+      </div>
+      <form id="review-form">
+        <div id="issues-container" class="issues"></div>
+        <label class="remember"><input id="remember-decisions" type="checkbox"> Reutilizar estas decisões em planilhas futuras</label>
+        <div class="actions"><button class="primary" type="submit">Aplicar decisões e validar</button></div>
+      </form>
+    </section>
+
+    <section id="allocation-panel" class="panel hidden">
+      <div class="panel-heading">
+        <div>
+          <span class="eyebrow">ETAPA 4</span>
+          <h2>Conferência de QTD_INDV</h2>
+          <p>Revise os valores calculados por localidade. O total é atualizado enquanto você edita.</p>
+        </div>
+      </div>
+      <div class="allocation-summary">
+        <div><small>Localidades únicas</small><strong id="localities-count">0</strong></div>
+        <div><small>Somatório de QTD_INDV</small><strong id="qtd-indv-total">0</strong></div>
+      </div>
+      <form id="allocation-form">
+        <div class="table-wrap">
+          <table class="allocation-table">
+            <thead><tr><th>Localidade</th><th>Código IBGE</th><th>Vagas</th><th>QTD_INDV</th></tr></thead>
+            <tbody id="allocation-body"></tbody>
+          </table>
+        </div>
+        <div class="actions"><button class="primary" type="submit">Confirmar valores e exportar</button></div>
+      </form>
+    </section>
+
+    <section id="result-panel" class="panel hidden">
+      <span class="eyebrow success">ETAPA 5</span>
+      <h2>Arquivos prontos</h2>
+      <p id="result-summary">O processamento foi concluído.</p>
+      <div id="result-warnings" class="notice-list"></div>
+      <div class="downloads">
+        <a data-kind="xlsx" class="download-card"><strong>Excel padronizado</strong><small>Registros completos</small><span>Baixar .xlsx</span></a>
+        <a data-kind="json" class="download-card"><strong>JSON completo</strong><small>Um objeto por vaga</small><span>Baixar .json</span></a>
+        <a data-kind="query" class="download-card"><strong>querieData</strong><small>Consolidado por município</small><span>Baixar .json</span></a>
+        <a data-kind="report" class="download-card"><strong>Relatório</strong><small>Alterações e alertas</small><span>Baixar .json</span></a>
+      </div>
+      <div class="actions"><button id="new-button" class="secondary">Processar outra planilha</button></div>
+    </section>
+
+    <section id="error-panel" class="panel error-panel hidden">
+      <span class="eyebrow error">ERRO</span>
+      <h2>Não foi possível concluir</h2>
+      <div id="error-list"></div>
+      <div class="actions"><button id="retry-button" class="secondary">Voltar ao início</button></div>
+    </section>
+  </main>
+
+  <script id="app-config" type="application/json">{{ {
+    'educationLevels': education_levels,
+    'educationDescriptions': education_descriptions,
+    'sexDescriptions': sex_descriptions,
+    'validUfs': valid_ufs
+  } | tojson }}</script>
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
