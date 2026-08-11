@@ -1,4 +1,4 @@
-# VagaNorm2
+# VagaNorm
 
 Aplicação local para validar, padronizar e consolidar planilhas de vagas. O sistema executa regras automáticas primeiro, agrupa as exceções para uma revisão única e só então gera os arquivos finais.
 
