@@ -2,13 +2,20 @@ from __future__ import annotations
 
 import json
 import queue
+import re
 from pathlib import Path
 
 from flask import Flask, Response, jsonify, render_template, request, send_file, stream_with_context
 
 from ..application.jobs import JobManager
 from ..application.pipeline import StandardizationPipeline
-from ..domain.normalizers import EDUCATION_DESCRIPTIONS, EDUCATION_LEVELS, SEX_DESCRIPTIONS, VALID_UFS
+from ..domain.normalizers import (
+    EDUCATION_DESCRIPTIONS,
+    EDUCATION_LEVELS,
+    SEX_DESCRIPTIONS,
+    VALID_UFS,
+    normalize_partner_name,
+)
 from ..infrastructure.ibge import IBGEClient
 from ..infrastructure.repository import LocalRepository
 
@@ -63,6 +70,16 @@ def create_app(test_config: dict | None = None) -> Flask:
             return jsonify({"error": "Selecione uma planilha .xlsx."}), 400
         if not upload.filename.lower().endswith(".xlsx"):
             return jsonify({"error": "Formato não suportado. Envie um arquivo .xlsx."}), 400
+        campaign_code = request.form.get("campaign_code", "")
+        if not re.fullmatch(r"[0-9]+", campaign_code) or not campaign_code.strip("0"):
+            return jsonify({
+                "error": "O código da campanha deve conter somente dígitos e ser maior que zero."
+            }), 400
+        partner_name = normalize_partner_name(request.form.get("partner", ""))
+        if not partner_name:
+            return jsonify({
+                "error": "Informe um parceiro cujo nome contenha letras ou números válidos."
+            }), 400
         qtd_indv_mode = request.form.get("qtd_indv_mode", "standard")
         if qtd_indv_mode not in {"standard", "custom"}:
             return jsonify({"error": "Regra de QTD_INDV inválida."}), 400
@@ -82,6 +99,8 @@ def create_app(test_config: dict | None = None) -> Flask:
             "sex": True,
             "qtd_indv_mode": qtd_indv_mode,
             "qtd_indv_multiplier": qtd_indv_multiplier,
+            "campaign_code": campaign_code,
+            "partner_name": partner_name,
         }
         job = manager.create(upload, options)
         return jsonify(job.public_dict()), 202
@@ -172,13 +191,7 @@ def create_app(test_config: dict | None = None) -> Flask:
         path = job.artifacts.get(kind)
         if job.status != "ready" or path is None or not path.exists():
             return jsonify({"error": "Arquivo ainda não está disponível."}), 409
-        names = {
-            "xlsx": "vagas_padronizadas.xlsx",
-            "json": "vagas_padronizadas.json",
-            "query": "vagas_padronizadas_querieData.json",
-            "report": "relatorio_processamento.json",
-        }
-        return send_file(path, as_attachment=True, download_name=names[kind])
+        return send_file(path, as_attachment=True, download_name=path.name)
 
     @app.errorhandler(413)
     def too_large(_error):

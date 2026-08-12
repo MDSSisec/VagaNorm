@@ -24,8 +24,30 @@ function setFile(file) {
   $('file-title').textContent = file.name;
   $('file-detail').textContent = `${(file.size / 1024 / 1024).toFixed(2)} MB`;
   $('drop-zone').classList.add('selected');
-  $('start-button').disabled = false;
+  updateStartButton();
 }
+
+function normalizePartnerName(value) {
+  const plain = value.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
+  return (plain.match(/[A-Za-z0-9]+/g) || [])
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join('');
+}
+
+function updateStartButton() {
+  const campaignCode = $('campaign-code').value;
+  const rawPartner = $('partner-name').value;
+  const validCampaign = /^\d+$/.test(campaignCode) && /[1-9]/.test(campaignCode);
+  const validPartner = Boolean(normalizePartnerName(rawPartner));
+  $('partner-error').classList.toggle('hidden', !rawPartner.trim() || validPartner);
+  $('start-button').disabled = !(state.file && validCampaign && validPartner);
+}
+
+$('campaign-code').addEventListener('input', event => {
+  event.target.value = event.target.value.replace(/\D/g, '');
+  updateStartButton();
+});
+$('partner-name').addEventListener('input', updateStartButton);
 
 $('file-input').addEventListener('change', event => setFile(event.target.files[0]));
 $('drop-zone').addEventListener('dragover', event => { event.preventDefault(); event.currentTarget.classList.add('over'); });
@@ -53,6 +75,18 @@ async function requestJson(url, options = {}) {
 
 $('start-button').addEventListener('click', async () => {
   if (!state.file) return;
+  const campaignCode = $('campaign-code').value;
+  const partner = $('partner-name').value;
+  if (!/^\d+$/.test(campaignCode) || !/[1-9]/.test(campaignCode)) {
+    window.alert('O código da campanha deve conter somente dígitos e ser maior que zero.');
+    $('campaign-code').focus();
+    return;
+  }
+  if (!normalizePartnerName(partner)) {
+    window.alert('Informe um parceiro cujo nome contenha letras ou números válidos.');
+    $('partner-name').focus();
+    return;
+  }
   const qtdIndvMode = document.querySelector('input[name="qtd-indv-mode"]:checked').value;
   const qtdIndvMultiplier = $('qtd-indv-multiplier').value.trim();
   if (qtdIndvMode === 'custom' && (!/^\d+$/.test(qtdIndvMultiplier) || Number(qtdIndvMultiplier) <= 0)) {
@@ -65,6 +99,8 @@ $('start-button').addEventListener('click', async () => {
   updateProgress({ progress: 3, message: 'Enviando a planilha…', warnings: [] });
   const form = new FormData();
   form.append('file', state.file);
+  form.append('campaign_code', campaignCode);
+  form.append('partner', partner);
   form.append('qtd_indv_mode', qtdIndvMode);
   if (qtdIndvMode === 'custom') form.append('qtd_indv_multiplier', qtdIndvMultiplier);
   try {

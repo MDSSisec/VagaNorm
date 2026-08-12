@@ -240,6 +240,8 @@ class JobManager:
             job.directory / "output",
             job.result.excluded_query_indices,
             report,
+            campaign_code=str(job.options["campaign_code"]),
+            partner_name=str(job.options["partner_name"]),
             qtd_indv_mode=str(job.options.get("qtd_indv_mode", "standard")),
             qtd_indv_multiplier=job.options.get("qtd_indv_multiplier"),
             qtd_indv_overrides=job.qtd_indv_overrides,

@@ -3,6 +3,7 @@ import unittest
 from vaganorm.domain.normalizers import (
     clean_null,
     normalize_header,
+    normalize_partner_name,
     parse_age,
     parse_education,
     parse_quantity,
@@ -18,6 +19,11 @@ class NormalizerTests(unittest.TestCase):
     def test_header_aliases(self):
         self.assertEqual(normalize_header("Município"), "CIDADE")
         self.assertEqual(normalize_header("Quantidade vagas"), "QUANTIDADE_DE_VAGAS")
+
+    def test_partner_name_is_safe_pascal_case(self):
+        self.assertEqual(normalize_partner_name(" Magazine Luíza "), "MagazineLuiza")
+        self.assertEqual(normalize_partner_name("açaí / comércio"), "AcaiComercio")
+        self.assertEqual(normalize_partner_name("../—"), "")
 
     def test_age_ranges_and_exclusive_limits(self):
         self.assertEqual(parse_age("18 a 40 anos"), (18, 40, None))

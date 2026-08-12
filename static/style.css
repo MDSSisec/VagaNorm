@@ -40,7 +40,9 @@ button, input, select { font: inherit; }
 h2 { margin: 0 0 7px; font-size: 26px; letter-spacing: -.025em; }
 .panel p { margin: 0; color: var(--muted); line-height: 1.55; }
 
-.drop-zone { margin: 26px 0 20px; min-height: 190px; padding: 26px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; border: 2px dashed #b8c4cc; border-radius: 15px; background: #fafbfc; cursor: pointer; transition: .18s ease; }
+.job-fields { margin-top: 20px; display: grid; grid-template-columns: 1fr 2fr; gap: 12px; }
+.job-fields .field { margin-top: 0; }
+.drop-zone { margin: 20px 0; min-height: 190px; padding: 26px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; border: 2px dashed #b8c4cc; border-radius: 15px; background: #fafbfc; cursor: pointer; transition: .18s ease; }
 .drop-zone:hover, .drop-zone.over { border-color: var(--brand); background: var(--brand-light); }
 .drop-zone.selected { border-style: solid; border-color: var(--success); background: #f2faf6; }
 .upload-icon { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 50%; background: var(--brand-light); color: var(--brand); font-size: 25px; font-weight: 800; }
@@ -82,6 +84,7 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 .field { margin-top: 11px; display: grid; gap: 6px; }
 .field label, .field-label { color: #46525c; font-size: 12px; font-weight: 750; }
 .field input, .field select { width: 100%; padding: 10px 11px; border: 1px solid #bdc7ce; border-radius: 8px; background: #fff; }
+.field-error { color: var(--danger); font-size: 12px; }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .check-grid { display: flex; flex-wrap: wrap; gap: 8px; }
 .check-choice { padding: 8px 10px; display: flex; gap: 6px; align-items: center; border: 1px solid var(--line); border-radius: 8px; background: #fff; font-size: 12px; }
@@ -124,7 +127,7 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 }
 
 @media (max-width: 480px) {
-  .downloads, .field-row, .qtd-rule { grid-template-columns: 1fr; }
+  .downloads, .field-row, .qtd-rule, .job-fields { grid-template-columns: 1fr; }
   .local-badge { display: none; }
   .allocation-summary { grid-template-columns: 1fr; }
 }

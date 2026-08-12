@@ -4,7 +4,7 @@ Aplicação local para validar, padronizar e consolidar planilhas de vagas. O si
 
 ## Fluxo
 
-1. Upload de uma planilha `.xlsx` com a aba `Lista`.
+1. Identificação obrigatória da campanha e do parceiro, seguida do upload de uma planilha `.xlsx` com a aba `Lista`.
 2. Validação de cabeçalhos, colunas obrigatórias e linhas de totalização.
 3. Normalização automática de UF, município/IBGE, idade, escolaridade, sexo e quantidade.
 4. Agrupamento de valores não reconhecidos em pendências únicas.
@@ -64,10 +64,12 @@ O sistema reconhece aliases comuns como `MUNICIPIO`, `ESTADO`, `QTD_VAGAS`, `ESC
 
 ## Saídas
 
-- `vagas_padronizadas.xlsx`: registros completos e colunas ordenadas;
-- `vagas_padronizadas.json`: registros completos em JSON;
-- `vagas_padronizadas_querieData.json`: registros consolidados por código IBGE válido;
-- `relatorio_processamento.json`: opções, quantidades, alterações e alertas.
+Os nomes usam o padrão `AC[CODIGO]_[PARCEIRO]_vagas_[TIPO]`. O código mantém zeros à esquerda e o parceiro é normalizado sem acentos ou caracteres inválidos, em PascalCase. Por exemplo, a campanha `00123` do parceiro `Magazine Luiza` gera:
+
+- `AC00123_MagazineLuiza_vagas_padronizado.xlsx`: registros completos e colunas ordenadas;
+- `AC00123_MagazineLuiza_vagas_json.json`: registros completos em JSON;
+- `AC00123_MagazineLuiza_vagas_querieData.json`: registros consolidados por código IBGE válido;
+- `AC00123_MagazineLuiza_vagas_relatorio.json`: opções, quantidades, alterações e alertas.
 
 Linhas sem código IBGE válido nunca são agrupadas entre si: elas ficam no arquivo completo e são rejeitadas apenas do `_querieData`, com registro no relatório.
 

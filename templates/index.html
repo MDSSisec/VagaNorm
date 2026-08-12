@@ -34,6 +34,18 @@
         </div>
       </div>
 
+      <div class="job-fields">
+        <label class="field">
+          <span class="field-label">Código da campanha</span>
+          <input id="campaign-code" type="text" inputmode="numeric" pattern="[0-9]+" autocomplete="off" required placeholder="Ex.: 00123">
+        </label>
+        <label class="field">
+          <span class="field-label">Parceiro</span>
+          <input id="partner-name" type="text" autocomplete="organization" required placeholder="Ex.: Magazine Luiza" aria-describedby="partner-error">
+          <small id="partner-error" class="field-error hidden">O nome deve conter letras ou números válidos.</small>
+        </label>
+      </div>
+
       <label id="drop-zone" class="drop-zone" for="file-input">
         <input id="file-input" type="file" accept=".xlsx" hidden>
         <span class="upload-icon">⇧</span>

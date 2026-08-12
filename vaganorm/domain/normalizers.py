@@ -34,6 +34,18 @@ def normalize_text(value: Any) -> str:
     return "".join(c for c in normalized if not unicodedata.combining(c)).upper().strip()
 
 
+def normalize_partner_name(value: Any) -> str:
+    if value is None:
+        return ""
+    decomposed = unicodedata.normalize("NFKD", str(value))
+    ascii_text = "".join(
+        character for character in decomposed
+        if not unicodedata.combining(character) and character.isascii()
+    )
+    words = re.findall(r"[A-Za-z0-9]+", ascii_text)
+    return "".join(word[:1].upper() + word[1:].lower() for word in words)
+
+
 def clean_null(value: Any) -> str | None:
     if value is None:
         return None

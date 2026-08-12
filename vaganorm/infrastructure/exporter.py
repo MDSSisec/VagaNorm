@@ -20,17 +20,20 @@ def export_all(
     directory: Path,
     excluded_indices: set[int],
     report: dict[str, Any],
+    campaign_code: str,
+    partner_name: str,
     qtd_indv_mode: str = "standard",
     qtd_indv_multiplier: int | None = None,
     qtd_indv_overrides: dict[str, int] | None = None,
 ) -> tuple[dict[str, Path], list[str]]:
     directory.mkdir(parents=True, exist_ok=True)
     ordered = order_output(df)
+    prefix = f"AC{campaign_code}_{partner_name}_vagas"
     paths = {
-        "xlsx": directory / "vagas_padronizadas.xlsx",
-        "json": directory / "vagas_padronizadas.json",
-        "query": directory / "vagas_padronizadas_querieData.json",
-        "report": directory / "relatorio_processamento.json",
+        "xlsx": directory / f"{prefix}_padronizado.xlsx",
+        "json": directory / f"{prefix}_json.json",
+        "query": directory / f"{prefix}_querieData.json",
+        "report": directory / f"{prefix}_relatorio.json",
     }
     write_xlsx(ordered, paths["xlsx"])
     paths["json"].write_text(json.dumps(_records(ordered), ensure_ascii=False, indent=2), encoding="utf-8")
