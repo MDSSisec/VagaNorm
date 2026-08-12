@@ -242,13 +242,17 @@ function renderDecisionControl(issue) {
     code.maxLength = 7;
     code.inputMode = 'numeric';
     code.placeholder = 'Código IBGE com 7 dígitos';
-    wrapper.appendChild(field(`Código IBGE — UF ${issue.context.uf}`, code));
+    code.addEventListener('input', () => { delete code.dataset.uf; });
+    wrapper.appendChild(field(`Código IBGE — UF informada: ${issue.context.uf}`, code));
     if (issue.suggestions.length) {
       const suggestions = element('div', 'suggestions');
       issue.suggestions.forEach(suggestion => {
         const button = element('button', 'suggestion', suggestion.label);
         button.type = 'button';
-        button.addEventListener('click', () => { code.value = suggestion.value; });
+        button.addEventListener('click', () => {
+          code.value = suggestion.code || suggestion.value;
+          code.dataset.uf = suggestion.uf;
+        });
         suggestions.appendChild(button);
       });
       wrapper.appendChild(suggestions);
@@ -329,11 +333,14 @@ function collectDecisions() {
       if (!minimum && !maximum) throw new Error(`Informe ao menos um limite para: ${issue.original}.`);
       value = { min: minimum ? Number(minimum) : null, max: maximum ? Number(maximum) : null };
       if (value.min !== null && value.max !== null && value.min > value.max) throw new Error('A idade mínima não pode superar a máxima.');
+    } else if (issue.kind === 'municipality') {
+      const code = controls[0]?.value.trim();
+      if (!/^\d{7}$/.test(code)) throw new Error('O código IBGE deve possuir sete dígitos.');
+      value = { code, uf: controls[0].dataset.uf || null };
     } else {
       value = controls[0]?.value.trim();
       if (!value) throw new Error(`Preencha: ${issue.title}.`);
       if (issue.kind === 'quantity') value = Number(value);
-      if (issue.kind === 'municipality' && !/^\d{7}$/.test(value)) throw new Error('O código IBGE deve possuir sete dígitos.');
     }
     values[issue.id] = value;
   }

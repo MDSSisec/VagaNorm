@@ -16,7 +16,15 @@ class FakeIBGE:
         return None, None, [{"label": "São Paulo", "value": "3550308"}]
 
     def resolve_code(self, uf, code):
-        return "São Paulo" if uf == "SP" and code == "3550308" else None
+        values = {
+            ("SP", "3550308"): "São Paulo",
+            ("PR", "4113700"): "Londrina",
+        }
+        return values.get((uf, code))
+
+    def resolve_code_national(self, code):
+        values = {"3550308": ("SP", "São Paulo"), "4113700": ("PR", "Londrina")}
+        return values.get(code)
 
 
 class PipelineTests(unittest.TestCase):
@@ -64,6 +72,58 @@ class PipelineTests(unittest.TestCase):
         )
         self.assertEqual(second.issues, [])
         self.assertEqual(second.dataframe.iloc[0]["UF"], "SP")
+
+    def test_interstate_decision_updates_grouped_rows_atomically(self):
+        frame = pd.DataFrame([
+            {"UF": "SC", "CIDADE": "Londrina", "QUANTIDADE_DE_VAGAS": 1},
+            {"UF": "SC", "CIDADE": "Londrina", "QUANTIDADE_DE_VAGAS": 2},
+        ])
+        first = self.pipeline.run(
+            frame, {"ibge": True, "ages": False, "education": False, "sex": False}
+        )
+        self.assertEqual(len(first.issues), 1)
+        self.assertEqual(first.issues[0].rows, [2, 3])
+        decision = {"code": "4113700", "uf": "PR"}
+        second = self.pipeline.run(
+            frame,
+            {"ibge": True, "ages": False, "education": False, "sex": False},
+            {first.issues[0].id: decision},
+        )
+        self.assertEqual(second.issues, [])
+        self.assertEqual(second.dataframe["UF"].tolist(), ["PR", "PR"])
+        self.assertEqual(second.dataframe["CIDADE"].tolist(), ["Londrina", "Londrina"])
+        self.assertEqual(second.dataframe["COD_IBGE"].tolist(), ["4113700", "4113700"])
+
+    def test_remembered_interstate_decision_restores_corrected_uf(self):
+        frame = pd.DataFrame([
+            {"UF": "SC", "CIDADE": "Londrina", "QUANTIDADE_DE_VAGAS": 1},
+        ])
+        options = {"ibge": True, "ages": False, "education": False, "sex": False}
+        first = self.pipeline.run(frame, options)
+        issue = first.issues[0]
+        self.repository.save_decision(
+            "municipality", issue.key, {"code": "4113700", "uf": "PR"}
+        )
+        second = self.pipeline.run(frame, options)
+        self.assertEqual(second.issues, [])
+        self.assertEqual(second.dataframe.iloc[0]["UF"], "PR")
+        self.assertEqual(second.dataframe.iloc[0]["COD_IBGE"], "4113700")
+
+    def test_manually_entered_code_is_resolved_nationally(self):
+        frame = pd.DataFrame([
+            {"UF": "SC", "CIDADE": "Londrina", "QUANTIDADE_DE_VAGAS": 1},
+        ])
+        options = {"ibge": True, "ages": False, "education": False, "sex": False}
+        first = self.pipeline.run(frame, options)
+        second = self.pipeline.run(
+            frame,
+            options,
+            {first.issues[0].id: {"code": "4113700", "uf": None}},
+        )
+        self.assertEqual(second.issues, [])
+        self.assertEqual(second.dataframe.iloc[0]["UF"], "PR")
+        self.assertEqual(second.dataframe.iloc[0]["CIDADE"], "Londrina")
+        self.assertEqual(second.dataframe.iloc[0]["COD_IBGE"], "4113700")
 
 
 if __name__ == "__main__":

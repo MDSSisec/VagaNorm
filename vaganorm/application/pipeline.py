@@ -122,26 +122,37 @@ class StandardizationPipeline:
             if options.get("ibge", True) and uf and raw_city:
                 city_key = f"{uf}|{normalize_text(raw_city)}"
                 chosen = decision("municipality", city_key)
-                if valid_ibge_code(chosen):
-                    chosen_code = str(chosen).strip()
+                chosen_code = chosen.get("code") if isinstance(chosen, dict) else chosen
+                chosen_uf = normalize_uf(chosen.get("uf")) if isinstance(chosen, dict) else uf
+                if valid_ibge_code(chosen_code):
+                    chosen_code = str(chosen_code).strip()
                     try:
-                        official_name = self.ibge.resolve_code(uf, chosen_code)
+                        if chosen_uf:
+                            official_name = self.ibge.resolve_code(chosen_uf, chosen_code)
+                        else:
+                            national = self.ibge.resolve_code_national(chosen_code)
+                            chosen_uf, official_name = national if national else (None, None)
                     except IBGEUnavailable as exc:
-                        official_name = raw_city
-                        warning_key = f"ibge-manual-{uf}"
+                        official_name = None
+                        warning_key = f"ibge-manual-{chosen_uf or uf}"
                         if warning_key not in warning_keys:
                             warnings.append(
-                                str(exc) + " Os códigos manuais desta UF não puderam ser conferidos."
+                                str(exc) + " O código manual não pôde ser conferido."
                             )
                             warning_keys.add(warning_key)
-                    if official_name:
+                    if official_name and chosen_uf:
+                        if df.at[index, "UF"] != chosen_uf:
+                            changes["UF"] += 1
+                        if df.at[index, "CIDADE"] != official_name:
+                            changes["CIDADE"] += 1
+                        df.at[index, "UF"] = chosen_uf
                         df.at[index, "COD_IBGE"] = chosen_code
                         df.at[index, "CIDADE"] = official_name
                         changes["COD_IBGE"] += 1
                     else:
                         add_issue(
                             "municipality", city_key, "Código IBGE incompatível",
-                            f"O código {chosen_code} não pertence à UF {uf}.",
+                            f"O código {chosen_code} não corresponde à UF selecionada.",
                             index, raw_city, {"uf": uf},
                         )
                 else:

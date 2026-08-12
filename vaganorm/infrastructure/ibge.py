@@ -59,6 +59,11 @@ class LocalMunicipalityCatalog:
             self._municipalities = self._load()
         return self._municipalities.get(uf.strip().upper(), {})
 
+    def all_municipalities(self) -> dict[str, dict[str, tuple[str, str]]]:
+        if self._municipalities is None:
+            self._municipalities = self._load()
+        return self._municipalities
+
 
 class SystemCertificateAdapter(HTTPAdapter):
     def __init__(self, *args, **kwargs):
@@ -75,6 +80,16 @@ class SystemCertificateAdapter(HTTPAdapter):
 
 
 class IBGEClient:
+    REGIONS = {
+        "AC": "Norte", "AL": "Nordeste", "AP": "Norte", "AM": "Norte",
+        "BA": "Nordeste", "CE": "Nordeste", "DF": "Centro-Oeste", "ES": "Sudeste",
+        "GO": "Centro-Oeste", "MA": "Nordeste", "MT": "Centro-Oeste", "MS": "Centro-Oeste",
+        "MG": "Sudeste", "PA": "Norte", "PB": "Nordeste", "PR": "Sul",
+        "PE": "Nordeste", "PI": "Nordeste", "RJ": "Sudeste", "RN": "Nordeste",
+        "RS": "Sul", "RO": "Norte", "RR": "Norte", "SC": "Sul",
+        "SP": "Sudeste", "SE": "Nordeste", "TO": "Norte",
+    }
+
     def __init__(
         self,
         repository: LocalRepository,
@@ -88,6 +103,8 @@ class IBGEClient:
         self.session = requests.Session()
         self.session.mount("https://", SystemCertificateAdapter())
         self._memory: dict[str, dict[str, tuple[str, str]]] = {}
+        self._national_by_name: dict[str, list[tuple[str, str, str]]] | None = None
+        self._national_by_code: dict[str, tuple[str, str]] | None = None
 
     def municipalities(self, uf: str) -> dict[str, tuple[str, str]]:
         uf = uf.strip().upper()
@@ -132,21 +149,71 @@ class IBGEClient:
         self._memory[uf] = result
         return result
 
+    def _national_indexes(self) -> tuple[
+        dict[str, list[tuple[str, str, str]]],
+        dict[str, tuple[str, str]],
+    ]:
+        if self._national_by_name is None or self._national_by_code is None:
+            by_name: dict[str, list[tuple[str, str, str]]] = {}
+            by_code: dict[str, tuple[str, str]] = {}
+            try:
+                catalog = self.local_catalog.all_municipalities()
+            except MunicipalityCatalogError as exc:
+                self.catalog_error = str(exc)
+                catalog = {}
+            for candidate_uf, municipalities in catalog.items():
+                for normalized_name, (display_name, code) in municipalities.items():
+                    by_name.setdefault(normalized_name, []).append((candidate_uf, display_name, code))
+                    by_code[code] = (candidate_uf, display_name)
+            self._national_by_name = by_name
+            self._national_by_code = by_code
+        return self._national_by_name, self._national_by_code
+
+    def _suggestions(self, original_uf: str, city: str) -> list[dict[str, str]]:
+        by_name, _ = self._national_indexes()
+        normalized = normalize_text(city)
+        matched_names = [normalized] if normalized in by_name else difflib.get_close_matches(
+            normalized, by_name.keys(), n=8, cutoff=0.62
+        )
+        original_region = self.REGIONS.get(original_uf)
+        candidates: list[tuple[float, str, str, str]] = []
+        for matched_name in matched_names:
+            similarity = difflib.SequenceMatcher(None, normalized, matched_name).ratio()
+            for candidate_uf, display_name, code in by_name[matched_name]:
+                candidates.append((similarity, candidate_uf, display_name, code))
+        candidates.sort(key=lambda item: (
+            0 if self.REGIONS.get(item[1]) == original_region else 1,
+            self.REGIONS.get(item[1], ""),
+            -item[0],
+            item[2],
+            item[1],
+        ))
+        return [
+            {
+                "label": f"{display_name} — {candidate_uf} ({code})",
+                "value": code,
+                "code": code,
+                "name": display_name,
+                "uf": candidate_uf,
+            }
+            for _, candidate_uf, display_name, code in candidates[:8]
+        ]
+
     def resolve(self, uf: str, city: str) -> tuple[str | None, str | None, list[dict[str, str]]]:
+        uf = uf.strip().upper()
         municipalities = self.municipalities(uf)
         normalized = normalize_text(city)
         exact = municipalities.get(normalized)
         if exact:
             return exact[1], exact[0], []
-        matches = difflib.get_close_matches(normalized, municipalities.keys(), n=5, cutoff=0.62)
-        suggestions = [
-            {"label": municipalities[key][0], "value": municipalities[key][1]}
-            for key in matches
-        ]
-        return None, None, suggestions
+        return None, None, self._suggestions(uf, city)
 
     def resolve_code(self, uf: str, code: str) -> str | None:
         for display_name, ibge_code in self.municipalities(uf).values():
             if ibge_code == code:
                 return display_name
         return None
+
+    def resolve_code_national(self, code: str) -> tuple[str, str] | None:
+        _, by_code = self._national_indexes()
+        return by_code.get(code)

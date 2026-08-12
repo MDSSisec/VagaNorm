@@ -37,6 +37,38 @@ class IBGECatalogTests(unittest.TestCase):
         self.assertEqual(client.resolve_code("SP", "3550308"), "São Paulo")
         self.assertIsNone(client.resolve_code("RJ", "3550308"))
 
+    def test_interstate_exact_matches_include_uf_name_and_code(self):
+        client = IBGEClient(Mock(), CATALOG_PATH)
+        cases = [
+            ("RS", "Guarapuava", "PR", "4109401"),
+            ("SC", "Londrina", "PR", "4113700"),
+            ("PR", "Nova Santa Rita", "RS", "4313375"),
+        ]
+        for original_uf, city, expected_uf, expected_code in cases:
+            with self.subTest(city=city):
+                code, name, suggestions = client.resolve(original_uf, city)
+                self.assertIsNone(code)
+                self.assertIsNone(name)
+                self.assertEqual(suggestions[0]["name"], city)
+                self.assertEqual(suggestions[0]["uf"], expected_uf)
+                self.assertEqual(suggestions[0]["code"], expected_code)
+                self.assertIn(expected_uf, suggestions[0]["label"])
+
+    def test_same_region_has_priority_for_homonymous_municipality(self):
+        client = IBGEClient(Mock(), CATALOG_PATH)
+        _, _, suggestions = client.resolve("SC", "Lajeado")
+        self.assertEqual(
+            [(item["uf"], item["code"]) for item in suggestions[:2]],
+            [("RS", "4311403"), ("TO", "1712009")],
+        )
+
+    def test_interstate_similar_name_and_national_code_lookup(self):
+        client = IBGEClient(Mock(), CATALOG_PATH)
+        _, _, suggestions = client.resolve("RS", "Guarapuva")
+        self.assertEqual(suggestions[0]["name"], "Guarapuava")
+        self.assertEqual(suggestions[0]["uf"], "PR")
+        self.assertEqual(client.resolve_code_national("4311403"), ("RS", "Lajeado"))
+
 
 if __name__ == "__main__":
     unittest.main()

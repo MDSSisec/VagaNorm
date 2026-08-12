@@ -40,6 +40,21 @@ class WebFlowTests(unittest.TestCase):
         buffer.seek(0)
         return buffer
 
+    def workbook_for(self, uf, city, quantity=2):
+        buffer = io.BytesIO()
+        frame = pd.DataFrame([{
+            "UF": uf,
+            "CIDADE": city,
+            "QUANTIDADE_DE_VAGAS": quantity,
+            "FAIXA_ETARIA": "18-40",
+            "GRAU_DE_INSTRUCAO": "Médio completo",
+            "SEXO": "Indiferente",
+        }])
+        with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+            frame.to_excel(writer, sheet_name="Lista", index=False)
+        buffer.seek(0)
+        return buffer
+
     def job_data(self, **overrides):
         data = {
             "file": (self.workbook(), "entrada.xlsx"),
@@ -187,6 +202,66 @@ class WebFlowTests(unittest.TestCase):
                 self.assertEqual(response.status_code, 400)
                 self.assertIn(expected_error, response.get_json()["error"].lower())
                 response.close()
+
+    def test_interstate_decision_propagates_to_all_data_exports(self):
+        data = self.job_data(file=(self.workbook_for("SC", "Londrina"), "entrada.xlsx"))
+        response = self.client.post(
+            "/api/jobs", data=data, content_type="multipart/form-data"
+        )
+        job_id = response.get_json()["id"]
+        job = self.wait_for(job_id, {"review", "error"})
+        self.assertEqual(job["status"], "review", job)
+        issue = self.client.get(f"/api/jobs/{job_id}/issues").get_json()["issues"][0]
+        suggestion = next(item for item in issue["suggestions"] if item["code"] == "4113700")
+        self.assertEqual((suggestion["name"], suggestion["uf"]), ("Londrina", "PR"))
+
+        decision = self.client.post(f"/api/jobs/{job_id}/decisions", json={
+            "values": {issue["id"]: {"code": suggestion["code"], "uf": suggestion["uf"]}},
+            "remember": True,
+        })
+        self.assertEqual(decision.status_code, 202)
+        job = self.wait_for(job_id, {"allocation_review", "review", "error"})
+        self.assertEqual(job["status"], "allocation_review", job)
+        allocation = self.get_allocation(job_id)
+        self.assertEqual(allocation["rows"][0]["cod_ibge"], "4113700")
+        self.assertEqual(allocation["rows"][0]["uf"], "PR")
+        self.confirm_allocation(job_id, allocation)
+        job = self.wait_for(job_id, {"ready", "error"})
+        self.assertEqual(job["status"], "ready", job)
+
+        json_response = self.client.get(f"/api/jobs/{job_id}/download/json")
+        complete_json = json.loads(json_response.data.decode("utf-8"))
+        json_response.close()
+        self.assertEqual(
+            (complete_json[0]["UF"], complete_json[0]["CIDADE"], complete_json[0]["COD_IBGE"]),
+            ("PR", "Londrina", "4113700"),
+        )
+        query_response = self.client.get(f"/api/jobs/{job_id}/download/query")
+        query_json = json.loads(query_response.data.decode("utf-8"))
+        query_response.close()
+        self.assertEqual(
+            (query_json[0]["UF"], query_json[0]["CIDADE"], query_json[0]["COD_IBGE"]),
+            ("PR", "Londrina", "4113700"),
+        )
+        excel_response = self.client.get(f"/api/jobs/{job_id}/download/xlsx")
+        excel = pd.read_excel(io.BytesIO(excel_response.data), sheet_name="Lista", dtype=object)
+        excel_response.close()
+        self.assertEqual(
+            (excel.iloc[0]["UF"], excel.iloc[0]["CIDADE"], str(excel.iloc[0]["COD_IBGE"])),
+            ("PR", "Londrina", "4113700"),
+        )
+
+        repeated = self.client.post("/api/jobs", data=self.job_data(
+            file=(self.workbook_for("SC", "Londrina"), "entrada.xlsx")
+        ), content_type="multipart/form-data")
+        repeated_job_id = repeated.get_json()["id"]
+        repeated_job = self.wait_for(
+            repeated_job_id, {"allocation_review", "review", "error"}
+        )
+        self.assertEqual(repeated_job["status"], "allocation_review", repeated_job)
+        repeated_allocation = self.get_allocation(repeated_job_id)
+        self.assertEqual(repeated_allocation["rows"][0]["uf"], "PR")
+        self.assertEqual(repeated_allocation["rows"][0]["cod_ibge"], "4113700")
 
     def wait_for(self, job_id, terminal_statuses):
         job = None
