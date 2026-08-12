@@ -10,6 +10,13 @@ from vaganorm.infrastructure.repository import LocalRepository
 
 
 class FakeIBGE:
+    def suggest_national(self, city, original_uf=None):
+        values = {
+            "Itajai": {"label": "Itajaí — SC (4208203)", "name": "Itajaí", "uf": "SC", "code": "4208203", "value": "4208203"},
+            "Extrema": {"label": "Extrema — MG (3125101)", "name": "Extrema", "uf": "MG", "code": "3125101", "value": "3125101"},
+        }
+        return [values[city]] if city in values else []
+
     def resolve(self, uf, city):
         if uf == "SP" and city.lower().startswith("são paulo"):
             return "3550308", "São Paulo", []
@@ -19,6 +26,8 @@ class FakeIBGE:
         values = {
             ("SP", "3550308"): "São Paulo",
             ("PR", "4113700"): "Londrina",
+            ("SC", "4208203"): "Itajaí",
+            ("MG", "3125101"): "Extrema",
         }
         return values.get((uf, code))
 
@@ -124,6 +133,38 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(second.dataframe.iloc[0]["UF"], "PR")
         self.assertEqual(second.dataframe.iloc[0]["CIDADE"], "Londrina")
         self.assertEqual(second.dataframe.iloc[0]["COD_IBGE"], "4113700")
+
+    def test_invalid_or_missing_uf_uses_city_and_does_not_group_different_cities(self):
+        frame = pd.DataFrame([
+            {"UF": "S", "CIDADE": "Itajai", "QUANTIDADE_DE_VAGAS": 1},
+            {"UF": "S", "CIDADE": "Extrema", "QUANTIDADE_DE_VAGAS": 2},
+            {"UF": None, "CIDADE": "Itajai", "QUANTIDADE_DE_VAGAS": 3},
+        ])
+        options = {"ibge": True, "ages": False, "education": False, "sex": False}
+        result = self.pipeline.run(frame, options)
+        self.assertEqual(len(result.issues), 3)
+        self.assertEqual([issue.context["city"] for issue in result.issues], ["Itajai", "Extrema", "Itajai"])
+        self.assertEqual(result.issues[0].suggestions[0]["uf"], "SC")
+        self.assertEqual(result.issues[1].suggestions[0]["uf"], "MG")
+
+    def test_equal_invalid_uf_and_city_are_grouped_and_corrected_atomically(self):
+        frame = pd.DataFrame([
+            {"UF": "S", "CIDADE": "Itajai", "QUANTIDADE_DE_VAGAS": 1},
+            {"UF": "S", "CIDADE": "Itajai", "QUANTIDADE_DE_VAGAS": 2},
+        ])
+        options = {"ibge": True, "ages": False, "education": False, "sex": False}
+        first = self.pipeline.run(frame, options)
+        self.assertEqual(len(first.issues), 1)
+        self.assertEqual(first.issues[0].rows, [2, 3])
+        second = self.pipeline.run(
+            frame,
+            options,
+            {first.issues[0].id: {"uf": "SC", "code": "4208203"}},
+        )
+        self.assertEqual(second.issues, [])
+        self.assertEqual(second.dataframe["UF"].tolist(), ["SC", "SC"])
+        self.assertEqual(second.dataframe["CIDADE"].tolist(), ["Itajaí", "Itajaí"])
+        self.assertEqual(second.dataframe["COD_IBGE"].tolist(), ["4208203", "4208203"])
 
 
 if __name__ == "__main__":

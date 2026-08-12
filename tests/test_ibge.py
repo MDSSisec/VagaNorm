@@ -69,6 +69,20 @@ class IBGECatalogTests(unittest.TestCase):
         self.assertEqual(suggestions[0]["uf"], "PR")
         self.assertEqual(client.resolve_code_national("4311403"), ("RS", "Lajeado"))
 
+    def test_national_suggestions_support_missing_or_invalid_uf(self):
+        client = IBGEClient(Mock(), CATALOG_PATH)
+        cases = [
+            ("ITAJAI", "Itajaí", "SC", "4208203"),
+            ("EXTREMA", "Extrema", "MG", "3125101"),
+        ]
+        for entered, name, uf, code in cases:
+            with self.subTest(city=entered):
+                suggestions = client.suggest_national(entered)
+                self.assertEqual(
+                    (suggestions[0]["name"], suggestions[0]["uf"], suggestions[0]["code"]),
+                    (name, uf, code),
+                )
+
 
 if __name__ == "__main__":
     unittest.main()

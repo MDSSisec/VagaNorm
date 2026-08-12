@@ -87,6 +87,7 @@ class StandardizationPipeline:
         for index, row in df.iterrows():
             raw_uf = clean_null(row.get("UF"))
             raw_city = clean_null(row.get("CIDADE"))
+            location_resolved = False
 
             if raw_uf is None and raw_city is None:
                 key = "empty-location"
@@ -101,25 +102,44 @@ class StandardizationPipeline:
                     )
 
             uf = normalize_uf(raw_uf)
-            if raw_uf is not None and uf is None:
-                key = normalize_text(raw_uf)
+            if uf is None and (raw_uf is not None or raw_city is not None):
+                key = (
+                    f"{normalize_text(raw_uf)}|{normalize_text(raw_city)}"
+                    if raw_city else normalize_text(raw_uf)
+                )
                 chosen = decision("invalid_uf", key)
-                corrected = normalize_uf(chosen)
-                if corrected:
+                corrected = normalize_uf(chosen.get("uf")) if isinstance(chosen, dict) else normalize_uf(chosen)
+                chosen_code = chosen.get("code") if isinstance(chosen, dict) else None
+                official_name = None
+                if corrected and valid_ibge_code(chosen_code):
+                    official_name = self.ibge.resolve_code(corrected, str(chosen_code).strip())
+                if corrected and official_name:
+                    uf = corrected
+                    df.at[index, "UF"] = corrected
+                    df.at[index, "CIDADE"] = official_name
+                    df.at[index, "COD_IBGE"] = str(chosen_code).strip()
+                    changes["UF"] += 1
+                    changes["CIDADE"] += 1
+                    changes["COD_IBGE"] += 1
+                    location_resolved = True
+                elif corrected and not isinstance(chosen, dict):
                     uf = corrected
                     df.at[index, "UF"] = corrected
                     changes["UF"] += 1
                 else:
+                    suggestions = self.ibge.suggest_national(raw_city) if raw_city else []
                     add_issue(
-                        "invalid_uf", key, "UF inválida",
-                        "Informe uma sigla de UF válida.", index, raw_uf,
+                        "invalid_uf", key, "UF ausente ou inválida",
+                        "Selecione uma localidade sugerida ou informe uma UF válida.",
+                        index, raw_uf,
+                        {"uf": raw_uf, "city": raw_city}, suggestions,
                     )
             elif uf:
                 if raw_uf != uf:
                     changes["UF"] += 1
                 df.at[index, "UF"] = uf
 
-            if options.get("ibge", True) and uf and raw_city:
+            if options.get("ibge", True) and uf and raw_city and not location_resolved:
                 city_key = f"{uf}|{normalize_text(raw_city)}"
                 chosen = decision("municipality", city_key)
                 chosen_code = chosen.get("code") if isinstance(chosen, dict) else chosen

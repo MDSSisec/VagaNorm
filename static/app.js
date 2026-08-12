@@ -234,7 +234,28 @@ function renderDecisionControl(issue) {
     return field('Tratamento', select(issue, [['Excluir apenas do querieData', 'exclude'], ['Manter nas saídas', 'keep']]));
   }
   if (issue.kind === 'invalid_uf') {
-    return field('UF correta', select(issue, config.validUfs.map(uf => [uf, uf])));
+    const wrapper = document.createElement('div');
+    wrapper.appendChild(element(
+      'div', 'original',
+      `UF informada: ${issue.context.uf || '(vazia)'} | Cidade: ${issue.context.city || '(vazia)'}`,
+    ));
+    const uf = select(issue, config.validUfs.map(value => [value, value]));
+    uf.addEventListener('change', () => { delete uf.dataset.code; });
+    wrapper.appendChild(field('UF correta', uf));
+    if (issue.suggestions.length) {
+      const suggestions = element('div', 'suggestions');
+      issue.suggestions.forEach(suggestion => {
+        const button = element('button', 'suggestion', suggestion.label);
+        button.type = 'button';
+        button.addEventListener('click', () => {
+          uf.value = suggestion.uf;
+          uf.dataset.code = suggestion.code || suggestion.value;
+        });
+        suggestions.appendChild(button);
+      });
+      wrapper.appendChild(suggestions);
+    }
+    return wrapper;
   }
   if (issue.kind === 'municipality') {
     const wrapper = document.createElement('div');
@@ -333,6 +354,10 @@ function collectDecisions() {
       if (!minimum && !maximum) throw new Error(`Informe ao menos um limite para: ${issue.original}.`);
       value = { min: minimum ? Number(minimum) : null, max: maximum ? Number(maximum) : null };
       if (value.min !== null && value.max !== null && value.min > value.max) throw new Error('A idade mínima não pode superar a máxima.');
+    } else if (issue.kind === 'invalid_uf') {
+      const uf = controls[0]?.value;
+      if (!uf) throw new Error(`Preencha: ${issue.title}.`);
+      value = controls[0].dataset.code ? { uf, code: controls[0].dataset.code } : uf;
     } else if (issue.kind === 'municipality') {
       const code = controls[0]?.value.trim();
       if (!/^\d{7}$/.test(code)) throw new Error('O código IBGE deve possuir sete dígitos.');

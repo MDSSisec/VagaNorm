@@ -263,6 +263,73 @@ class WebFlowTests(unittest.TestCase):
         self.assertEqual(repeated_allocation["rows"][0]["uf"], "PR")
         self.assertEqual(repeated_allocation["rows"][0]["cod_ibge"], "4113700")
 
+    def test_invalid_uf_suggestion_propagates_to_all_data_exports(self):
+        response = self.client.post("/api/jobs", data=self.job_data(
+            file=(self.workbook_for("S", "ITAJAI"), "entrada.xlsx")
+        ), content_type="multipart/form-data")
+        job_id = response.get_json()["id"]
+        job = self.wait_for(job_id, {"review", "error"})
+        self.assertEqual(job["status"], "review", job)
+        issue = self.client.get(f"/api/jobs/{job_id}/issues").get_json()["issues"][0]
+        self.assertEqual(issue["kind"], "invalid_uf")
+        self.assertEqual(issue["context"], {"uf": "S", "city": "ITAJAI"})
+        suggestion = next(item for item in issue["suggestions"] if item["code"] == "4208203")
+        self.assertEqual((suggestion["name"], suggestion["uf"]), ("Itajaí", "SC"))
+
+        decision = self.client.post(f"/api/jobs/{job_id}/decisions", json={
+            "values": {issue["id"]: {"uf": "SC", "code": "4208203"}},
+            "remember": True,
+        })
+        self.assertEqual(decision.status_code, 202)
+        job = self.wait_for(job_id, {"allocation_review", "review", "error"})
+        self.assertEqual(job["status"], "allocation_review", job)
+        allocation = self.get_allocation(job_id)
+        self.assertEqual(
+            (allocation["rows"][0]["uf"], allocation["rows"][0]["cidade"], allocation["rows"][0]["cod_ibge"]),
+            ("SC", "Itajaí", "4208203"),
+        )
+        self.confirm_allocation(job_id, allocation)
+        job = self.wait_for(job_id, {"ready", "error"})
+        self.assertEqual(job["status"], "ready", job)
+
+        json_response = self.client.get(f"/api/jobs/{job_id}/download/json")
+        complete_json = json.loads(json_response.data.decode("utf-8"))
+        json_response.close()
+        query_response = self.client.get(f"/api/jobs/{job_id}/download/query")
+        query_json = json.loads(query_response.data.decode("utf-8"))
+        query_response.close()
+        excel_response = self.client.get(f"/api/jobs/{job_id}/download/xlsx")
+        excel = pd.read_excel(io.BytesIO(excel_response.data), sheet_name="Lista", dtype=object)
+        excel_response.close()
+        self.assertEqual(
+            (complete_json[0]["UF"], complete_json[0]["CIDADE"], complete_json[0]["COD_IBGE"]),
+            ("SC", "Itajaí", "4208203"),
+        )
+        self.assertEqual(
+            (query_json[0]["UF"], query_json[0]["CIDADE"], query_json[0]["COD_IBGE"]),
+            ("SC", "Itajaí", "4208203"),
+        )
+        self.assertEqual(
+            (excel.iloc[0]["UF"], excel.iloc[0]["CIDADE"], str(excel.iloc[0]["COD_IBGE"])),
+            ("SC", "Itajaí", "4208203"),
+        )
+        report_response = self.client.get(f"/api/jobs/{job_id}/download/report")
+        report = json.loads(report_response.data.decode("utf-8"))
+        report_response.close()
+        self.assertEqual(
+            {field: report["changes"][field] for field in ("UF", "CIDADE", "COD_IBGE")},
+            {"UF": 1, "CIDADE": 1, "COD_IBGE": 1},
+        )
+
+        repeated = self.client.post("/api/jobs", data=self.job_data(
+            file=(self.workbook_for("S", "ITAJAI"), "entrada.xlsx")
+        ), content_type="multipart/form-data")
+        repeated_job_id = repeated.get_json()["id"]
+        repeated_job = self.wait_for(
+            repeated_job_id, {"allocation_review", "review", "error"}
+        )
+        self.assertEqual(repeated_job["status"], "allocation_review", repeated_job)
+
     def wait_for(self, job_id, terminal_statuses):
         job = None
         for _ in range(100):

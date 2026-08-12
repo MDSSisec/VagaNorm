@@ -169,13 +169,13 @@ class IBGEClient:
             self._national_by_code = by_code
         return self._national_by_name, self._national_by_code
 
-    def _suggestions(self, original_uf: str, city: str) -> list[dict[str, str]]:
+    def suggest_national(self, city: str, original_uf: str | None = None) -> list[dict[str, str]]:
         by_name, _ = self._national_indexes()
         normalized = normalize_text(city)
         matched_names = [normalized] if normalized in by_name else difflib.get_close_matches(
             normalized, by_name.keys(), n=8, cutoff=0.62
         )
-        original_region = self.REGIONS.get(original_uf)
+        original_region = self.REGIONS.get(original_uf or "")
         candidates: list[tuple[float, str, str, str]] = []
         for matched_name in matched_names:
             similarity = difflib.SequenceMatcher(None, normalized, matched_name).ratio()
@@ -206,7 +206,7 @@ class IBGEClient:
         exact = municipalities.get(normalized)
         if exact:
             return exact[1], exact[0], []
-        return None, None, self._suggestions(uf, city)
+        return None, None, self.suggest_national(city, uf)
 
     def resolve_code(self, uf: str, code: str) -> str | None:
         for display_name, ibge_code in self.municipalities(uf).values():
