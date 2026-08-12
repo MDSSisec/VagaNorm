@@ -1,4 +1,4 @@
-"""Núcleo do VagaNorm2."""
+"""Núcleo do VagaNorm."""
 
 from .web.app_factory import create_app
 

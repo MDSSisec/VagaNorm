@@ -1,1 +1,1 @@
-"""Interface HTTP local do VagaNorm2."""
+"""Interface HTTP local do VagaNorm."""

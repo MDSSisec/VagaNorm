@@ -1,1 +1,1 @@
-"""Adaptadores externos do VagaNorm2."""
+"""Adaptadores externos do VagaNorm."""

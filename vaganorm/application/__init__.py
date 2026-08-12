@@ -1,1 +1,1 @@
-"""Casos de uso e orquestração do VagaNorm2."""
+"""Casos de uso e orquestração do VagaNorm."""

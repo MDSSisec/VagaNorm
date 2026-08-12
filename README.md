@@ -43,7 +43,7 @@ A API do IBGE é utilizada apenas como fallback quando uma UF não estiver dispo
 
 ## Instalação e execução
 
-No PowerShell, dentro da pasta `VagaNorm2`:
+No PowerShell, dentro da pasta `VagaNorm`:
 
 ```powershell
 py -3.13 -m pip install -r requirements.txt

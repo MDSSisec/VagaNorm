@@ -1,1 +1,1 @@
-"""Regras de negócio puras do VagaNorm2."""
+"""Regras de negócio puras do VagaNorm."""
