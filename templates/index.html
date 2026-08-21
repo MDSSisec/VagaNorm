@@ -53,19 +53,6 @@
         <small id="file-detail">Nenhum arquivo selecionado</small>
       </label>
 
-      <fieldset class="qtd-rule">
-        <legend>Cálculo de QTD_INDV no _querieData</legend>
-        <label class="rule-choice">
-          <input type="radio" name="qtd-indv-mode" value="standard" checked>
-          <span><strong>Regra padrão</strong><small>Maior valor entre vagas × 20 e 250</small></span>
-        </label>
-        <label class="rule-choice custom-rule">
-          <input type="radio" name="qtd-indv-mode" value="custom">
-          <span><strong>Multiplicador personalizado</strong><small>Quantidade de vagas × X, sem piso mínimo</small></span>
-          <input id="qtd-indv-multiplier" class="multiplier-input" type="number" min="1" step="1" value="20" disabled aria-label="Multiplicador de QTD_INDV">
-        </label>
-      </fieldset>
-
       <div class="actions"><button id="start-button" class="primary" disabled>Validar e processar</button></div>
     </section>
 
@@ -101,6 +88,20 @@
           <h2>Conferência de QTD_INDV</h2>
           <p>Revise os valores calculados por localidade. O total é atualizado enquanto você edita.</p>
         </div>
+
+             <fieldset class="qtd-rule">
+        <legend>Cálculo de QTD_INDV no _querieData</legend>
+        <label class="rule-choice">
+          <input type="radio" name="qtd-indv-mode" value="standard" checked>
+          <span><strong>Regra padrão</strong><small>Maior valor entre vagas × 20 e 250</small></span>
+        </label>
+        <label class="rule-choice custom-rule">
+          <input type="radio" name="qtd-indv-mode" value="custom">
+          <span><strong>Multiplicador personalizado</strong><small>Quantidade de vagas × X, sem piso mínimo</small></span>
+          <input id="qtd-indv-multiplier" class="multiplier-input" type="number" min="1" step="1" value="20" disabled aria-label="Multiplicador de QTD_INDV">
+        </label>
+      </fieldset>
+
       </div>
       <div class="allocation-summary">
         <div><small>Localidades únicas</small><strong id="localities-count">0</strong></div>

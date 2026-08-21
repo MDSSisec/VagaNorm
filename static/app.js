@@ -63,8 +63,12 @@ document.querySelectorAll('input[name="qtd-indv-mode"]').forEach(control => {
     const custom = document.querySelector('input[name="qtd-indv-mode"]:checked').value === 'custom';
     $('qtd-indv-multiplier').disabled = !custom;
     if (custom) $('qtd-indv-multiplier').focus();
+    recalculate();
   });
 });
+
+$('qtd-indv-multiplier').addEventListener('input', recalculate);
+
 
 async function requestJson(url, options = {}) {
   const response = await fetch(url, options);
@@ -101,8 +105,6 @@ $('start-button').addEventListener('click', async () => {
   form.append('file', state.file);
   form.append('campaign_code', campaignCode);
   form.append('partner', partner);
-  form.append('qtd_indv_mode', qtdIndvMode);
-  if (qtdIndvMode === 'custom') form.append('qtd_indv_multiplier', qtdIndvMultiplier);
   try {
     const job = await requestJson('/api/jobs', { method: 'POST', body: form });
     state.jobId = job.id;
@@ -420,6 +422,24 @@ function updateAllocationTotal() {
   }, 0);
   $('qtd-indv-total').textContent = total.toLocaleString('pt-BR');
 }
+
+function recalculate() {
+  const qtdIndvMode = document.querySelector('input[name="qtd-indv-mode"]:checked').value;
+  const qtdIndvMultiplier = $('qtd-indv-multiplier').value.trim();
+  document.querySelectorAll('.allocation-input').forEach(campo =>{
+    const linha = state.allocation.find(tabela => tabela.cod_ibge === campo.dataset.code);
+    const vagas = linha.quantidade_vagas
+    let valor_atualizado;
+    if (qtdIndvMode === 'custom') {
+      valor_atualizado = qtdIndvMultiplier * vagas
+} else {
+      valor_atualizado = Math.max(vagas*20, 250)
+    }
+    campo.value = valor_atualizado
+  });
+    updateAllocationTotal();
+}
+
 
 $('allocation-form').addEventListener('submit', async event => {
   event.preventDefault();
