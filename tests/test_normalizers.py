@@ -53,6 +53,6 @@ class NormalizerTests(unittest.TestCase):
         self.assertEqual(normalize_city_name("São Paulo"), "SAO PAULO")
         self.assertEqual(normalize_city_name("Conceição"), "CONCEICAO")
         self.assertEqual(normalize_city_name("Olho d'Água"), "OLHO DAGUA")
-
+        self.assertEqual(normalize_city_name("Olho d’Água"), "OLHO DAGUA")
 if __name__ == "__main__":
     unittest.main()

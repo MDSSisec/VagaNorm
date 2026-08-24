@@ -147,7 +147,10 @@ class WebFlowTests(unittest.TestCase):
         allocation = self.get_allocation(job_id)
         self.assertEqual(allocation["localities"], 1)
         self.assertEqual(allocation["total_qtd_indv"], 14)
-        self.confirm_allocation(job_id, allocation, {"3550308": 99})
+        self.confirm_allocation(
+            job_id, allocation, {"3550308": 99},
+            qtd_indv_mode="custom", qtd_indv_multiplier=7,
+        )
         job = self.wait_for(job_id, {"ready", "error"})
         self.assertEqual(job["status"], "ready", job)
 
@@ -241,7 +244,7 @@ class WebFlowTests(unittest.TestCase):
         query_response.close()
         self.assertEqual(
             (query_json[0]["UF"], query_json[0]["CIDADE"], query_json[0]["COD_IBGE"]),
-            ("PR", "Londrina", "4113700"),
+            ("PR", "LONDRINA", "4113700"),
         )
         excel_response = self.client.get(f"/api/jobs/{job_id}/download/xlsx")
         excel = pd.read_excel(io.BytesIO(excel_response.data), sheet_name="Lista", dtype=object)
@@ -307,7 +310,7 @@ class WebFlowTests(unittest.TestCase):
         )
         self.assertEqual(
             (query_json[0]["UF"], query_json[0]["CIDADE"], query_json[0]["COD_IBGE"]),
-            ("SC", "Itajaí", "4208203"),
+            ("SC", "ITAJAI", "4208203"),
         )
         self.assertEqual(
             (excel.iloc[0]["UF"], excel.iloc[0]["CIDADE"], str(excel.iloc[0]["COD_IBGE"])),
@@ -346,12 +349,14 @@ class WebFlowTests(unittest.TestCase):
         response.close()
         return payload
 
-    def confirm_allocation(self, job_id, allocation, replacements=None):
+    def confirm_allocation(self, job_id, allocation, replacements=None, qtd_indv_mode="standard", qtd_indv_multiplier=None):
         values = {row["cod_ibge"]: row["qtd_indv"] for row in allocation["rows"]}
         values.update(replacements or {})
         response = self.client.post(
             f"/api/jobs/{job_id}/allocation",
-            json={"values": values},
+            json={"values": values,
+                  "qtd_indv_mode": qtd_indv_mode,
+                  "qtd_indv_multiplier": qtd_indv_multiplier,},
         )
         self.assertEqual(response.status_code, 202, response.get_json())
         response.close()
