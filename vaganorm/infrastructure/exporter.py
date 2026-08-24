@@ -8,6 +8,7 @@ import pandas as pd
 
 from ..domain.aggregation import aggregate_query_data
 from .excel import order_output, write_xlsx
+from ..domain.normalizers import normalize_city_name
 
 
 def _records(df: pd.DataFrame) -> list[dict[str, Any]]:
@@ -44,6 +45,8 @@ def export_all(
         qtd_indv_multiplier=qtd_indv_multiplier,
         qtd_indv_overrides=qtd_indv_overrides,
     )
+    for record in query_records:
+        record["CIDADE"] = normalize_city_name(record["CIDADE"])
     paths["query"].write_text(json.dumps(query_records, ensure_ascii=False, indent=2), encoding="utf-8")
     report = {**report, "export_warnings": warnings, "query_records": len(query_records)}
     paths["report"].write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")

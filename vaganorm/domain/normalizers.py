@@ -25,6 +25,8 @@ EDUCATION_DESCRIPTIONS = {
 }
 SEX_DESCRIPTIONS = {"Masc": "Masculino", "Fem": "Feminino", "Ind": "Indiferente"}
 
+APOSTROPHES = "'\u2019\u2018\u0060\u02bc\u00b4"
+
 
 def normalize_text(value: Any) -> str:
     if value is None:
@@ -32,6 +34,15 @@ def normalize_text(value: Any) -> str:
     text = str(value).strip()
     normalized = unicodedata.normalize("NFKD", text)
     return "".join(c for c in normalized if not unicodedata.combining(c)).upper().strip()
+
+def normalize_city_name(value: Any) -> str | None:
+    if value is None:
+        return None
+    texto = str(value).strip()
+    for ch in APOSTROPHES:
+        texto = texto.replace(ch, "")
+    return normalize_text(texto)
+
 
 
 def normalize_partner_name(value: Any) -> str:

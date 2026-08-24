@@ -4,6 +4,7 @@ from vaganorm.domain.normalizers import (
     clean_null,
     normalize_header,
     normalize_partner_name,
+    normalize_city_name,
     parse_age,
     parse_education,
     parse_quantity,
@@ -48,7 +49,10 @@ class NormalizerTests(unittest.TestCase):
         self.assertEqual(parse_quantity(2.0), (2, None))
         self.assertIsNotNone(parse_quantity("1,5")[1])
         self.assertIsNotNone(parse_quantity("-2")[1])
-
+    def test_apostrophe_validation(self):
+        self.assertEqual(normalize_city_name("São Paulo"), "SAO PAULO")
+        self.assertEqual(normalize_city_name("Conceição"), "CONCEICAO")
+        self.assertEqual(normalize_city_name("Olho d'Água"), "OLHO DAGUA")
 
 if __name__ == "__main__":
     unittest.main()
