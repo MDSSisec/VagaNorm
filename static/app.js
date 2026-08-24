@@ -443,6 +443,8 @@ function recalculate() {
 
 $('allocation-form').addEventListener('submit', async event => {
   event.preventDefault();
+  const qtdIndvMode = document.querySelector('input[name="qtd-indv-mode"]:checked').value;
+  const qtdIndvMultiplier = $('qtd-indv-multiplier').value;
   const values = {};
   for (const input of document.querySelectorAll('.allocation-input')) {
     const value = Number(input.value);
@@ -460,7 +462,7 @@ $('allocation-form').addEventListener('submit', async event => {
     await requestJson(`/api/jobs/${state.jobId}/allocation`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ values }),
+      body: JSON.stringify({values, qtd_indv_multiplier: Number(qtdIndvMultiplier), qtd_indv_mode: qtdIndvMode }),
     });
     ensureEvents();
   } catch (error) {

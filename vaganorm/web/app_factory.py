@@ -154,8 +154,19 @@ def create_app(test_config: dict | None = None) -> Flask:
         values = payload.get("values")
         if not isinstance(values, dict):
             return jsonify({"error": "O campo 'values' deve ser um objeto por código IBGE."}), 400
+        qtd_indv_mode = payload.get("qtd_indv_mode", "standard")
+        if qtd_indv_mode not in {"standard", "custom"}:
+            return jsonify({"error": "Regra de QTD_INDV inválida."}), 400
+        qtd_indv_multiplier = None
+        if qtd_indv_mode == "custom":
+            raw_multiplier = payload.get("qtd_indv_multiplier")
+            if isinstance(raw_multiplier, bool) or not isinstance(raw_multiplier, int) or raw_multiplier <= 0:
+                return jsonify({
+                    "error": "Informe um multiplicador inteiro positivo para QTD_INDV."
+                }), 400
+            qtd_indv_multiplier = raw_multiplier
         try:
-            manager.submit_allocation(job, values)
+            manager.submit_allocation(job, values, qtd_indv_mode, qtd_indv_multiplier)
         except ValueError as exc:
             return jsonify({"error": str(exc)}), 409
         return jsonify(job.public_dict()), 202

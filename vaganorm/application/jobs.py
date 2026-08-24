@@ -177,7 +177,7 @@ class JobManager:
             "rows": rows,
         }
 
-    def submit_allocation(self, job: Job, values: dict[str, Any]) -> None:
+    def submit_allocation(self, job: Job, values: dict[str, Any], qtd_indv_mode: str, qtd_indv_multiplier: int | None) -> None:
         if job.status != "allocation_review":
             raise ValueError("Este processamento não está aguardando a conferência de QTD_INDV.")
         expected = {item["COD_IBGE"] for item in job.allocation}
@@ -197,6 +197,15 @@ class JobManager:
                 raise ValueError(f"QTD_INDV de {code} deve ser um inteiro maior ou igual a zero.")
             normalized[code] = value
         job.qtd_indv_overrides = normalized
+        job.options["qtd_indv_mode"] = qtd_indv_mode
+        job.options["qtd_indv_multiplier"] = qtd_indv_multiplier
+        resultado, _ = aggregate_query_data(
+            job.result.dataframe,
+            job.result.excluded_query_indices,
+            qtd_indv_mode=str(job.options.get("qtd_indv_mode", "standard")),
+            qtd_indv_multiplier=job.options.get("qtd_indv_multiplier"),
+        )
+        job.allocation = resultado
         self._set_status(job, "exporting", 90, "Gerando arquivos com os valores confirmados")
         threading.Thread(target=self._export_safely, args=(job,), daemon=True).start()
 
